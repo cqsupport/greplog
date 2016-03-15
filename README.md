@@ -1,5 +1,5 @@
 # greplog
-Script for grepping the AEM error log.
+Script for grepping the CQ5.x and AEM6.x error log files.
 
 
 ```
@@ -13,4 +13,10 @@ Usage: php greplog.php -f <log-file-path> [options]
 -H: show filename
 -b: beginning time: This filters log messages by only including messages that come after the time specified.  Example value "01.03.2011 15:09:51".  The format is dd.mm.yyyy hh.mm.ss
 -e: end time: This filters log messages by only including messages that come before the time specified.  Example value "01.03.2011 15:09:51". The format is dd.mm.yyyy hh.mm.ss
+```
+
+### Example
+Search replication.log for all log messages that exclude the terms "reverse" and "publish5"
+```
+php greplog.php -f replication.log -l info -x "/reverse|publish5/"
 ```
