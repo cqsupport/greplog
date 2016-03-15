@@ -1,5 +1,5 @@
 # greplog
-Script for grepping the CQ5.x and AEM6.x error log files.
+Script for grepping Sling, CQ5.x and AEM6.x error log files.  The script outputs the log messages and their stack traces and allows filtering by regex and by date/time range.
 
 
 ```
