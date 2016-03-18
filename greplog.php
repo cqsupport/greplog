@@ -2,17 +2,18 @@
 <?php
 $major_errors        = array();
 $major_error_matches = array(
-    "IOException: No space left on",
-    "Too many open files",
-    "Failed to read bundle: ",
-    "IOException: File not found: ",
-    "DataStoreException: Record not found",
+    "IOException: No space left on", // Out of disk space
+    "Too many open files", // Too many open files
+    "Caused by: java.io.IOException: Can not rename ", // Possible file system corruption
+    "Failed to read bundle: ", // tar file corruption in CRX2
+    "IOException: File not found: ", // tar file missing is CRX2
+    "DataStoreException: Record not found", // CRX2 datastore issues
     "DataStoreException: Could not length of dataIdentifier",
-    "NoClassDefFoundError",
+    "NoClassDefFoundError", // classloading issues
     "NoSuchMethod",
     "ClassNotFoundException",
-    "Error occurred while obtaining InputStream for blobId",
-    "OutOfMemoryError"
+    "Error occurred while obtaining InputStream for blobId", // missing files from datastore
+    "OutOfMemoryError" // out of memory situation
 );
 
 function help()
