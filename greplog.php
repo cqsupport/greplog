@@ -2,19 +2,32 @@
 <?php
 $major_errors        = array();
 $major_error_matches = array(
-    "IOException: No space left on", // Out of disk space
-    "Too many open files", // Too many open files
-    "Caused by: java.io.IOException: Can not rename ", // Possible file system corruption
-    "Failed to read bundle: ", // tar file corruption in CRX2
-    "IOException: File not found: ", // tar file missing is CRX2
-    "DataStoreException: Record not found", // CRX2 datastore issues
+    "IOException: No space left on",
+    "Too many open files",
+    "Failed to read bundle: ",
+    "IOException: File not found: ",
+    "DataStoreException: Record not found",
     "DataStoreException: Could not length of dataIdentifier",
-    "NoClassDefFoundError", // classloading issues
+    "NoClassDefFoundError",
     "NoSuchMethod",
     "ClassNotFoundException",
-    "Error occurred while obtaining InputStream for blobId", // missing files from datastore
-    "OutOfMemoryError" // out of memory situation
+    "Error occurred while obtaining InputStream for blobId",
+    "OutOfMemoryError",
+    " was already added in revision"
 );
+$narrative_matches   = array(
+    "com\.day\.crx\.persistence\.tar\.OptimizeThread Scheduled optimization started at" => "Tar optimization started",
+    "com\.day\.crx\.persistence\.tar\.index\.IndexSet Merging index files for" => "Tar Index Merging started",
+    "\[FelixShutdown\] org\.apache\.felix\.framework BundleEvent STOPPING" => "AEM/CQ initializing shutdown",
+    "\[FelixStartLevel\] org\.apache\.sling\.commons\.logservice BundleEvent STOPPING" => "AEM/CQ completed shutdown",
+    "\[FelixStartLevel\] org\.apache\.sling\.installer\.core BundleEvent RESOLVED|resources registered with OsgiInstaller" => "AEM/CQ initializing startup",
+    
+    "JcrPackageDefinitionImpl unwrapping package" => "Installing package",
+    "JcrPackageImpl Creating snapshot for" => "Creating package snapshot",
+    "ZipVaultPackage Extracting " => "Package install completed",
+    "org\.apache\.sling\.audit\.osgi\.installer Installed configuration" => "OSGi Configuration installed"
+);
+$narrative           = array();
 
 function help()
 {
@@ -67,15 +80,33 @@ function checkMajorErrors($linenum, $logline, $line, $filename)
             unset($major_error_matches[$needle]);
         }
     }
-    //if($prodversion == "CQ5") {
-    //             /*if(strstr($line, "com.day.crx.persistence.tar.OptimizeThread Scheduled optimization started at")) {
-    //             //             echo "TAR OPTIMIZATION STARTED: " . $line;
-    //                          }
-    //                                       if(strstr($line, "com.day.crx.persistence.tar.index.IndexSet Merging index files for ")) {
-    //                                       //             echo "TAR INDEX MERGING STARTED: " . $line;
-    //                                                    }*/
-    //                                                               //}
 }
+
+function checkNarrative($linenum, $logline, $line, $filename)
+{
+    global $narrative, $narrative_matches;
+    foreach ($narrative_matches as $needle => $message) {
+        if (preg_match("/" . $needle . "/", $logline)) {
+            if ($logline == $line) {
+                array_push($narrative, array(
+                    $message,
+                    $filename,
+                    $linenum,
+                    $logline
+                ));
+            } else {
+                array_push($narrative, array(
+                    $message,
+                    $filename,
+                    $linenum,
+                    $logline,
+                    $line
+                ));
+            }
+        }
+    }
+}
+
 function search_in_file($filename, $level, $search, $excludesearch, $regex, $show_linenum, $show_filename, $start_time, $end_time, $lines_before, $lines_after)
 {
     //Open the file
@@ -85,22 +116,26 @@ function search_in_file($filename, $level, $search, $excludesearch, $regex, $sho
     $stacklines = 0;
     $canread    = (($line = fgets($fp)) !== false);
     $linenum++;
+    $is_match = true;
     while ($dontread || $canread) {
         $strlogmsg = "";
         $logline   = "";
         $sub       = substr($line, 0, 300);
+        checkNarrative($linenum, $line, $sub, $filename);
+        //if(!preg_match("/^(?:[a-zA-Z0-9.\-_]+:)?(?:\d+:)?(\d\d\.\d\d\.\d\d\d\d \d\d:\d\d:\d\d(\.\d\d\d)?) \*" . get_level_regex($level) . "\*/", $sub, $matches)) echo "No match " . $sub;
+        $logmsgline = $linenum;
         if (preg_match("/^(?:[a-zA-Z0-9.\-_]+:)?(?:\d+:)?(\d\d\.\d\d\.\d\d\d\d \d\d:\d\d:\d\d(\.\d\d\d)?) \*" . get_level_regex($level) . "\*/", $sub, $matches)) {
-            $logmsgline = $linenum;
             $time       = strtotime($matches[1]);
             $strlogmsg  = $line;
             $logline    = $line;
             checkMajorErrors($linenum, $logline, $line, $filename);
-            $line = fgets($fp);
-            $linenum++;
+            //$line = fgets($fp);
+            //$linenum++;
             $sub = substr($line, 0, 300);
-            while ($line !== false && !preg_match("/^(?:[a-zA-Z0-9.\-_]+:)?(?:\d+:)?\d\d\.\d\d\.\d\d\d\d \d\d:\d\d:\d\d(?:\.\d\d\d)? \*(?:TRACE|DEBUG|INFO|WARN|ERROR\*)/", $sub)) {
+            checkNarrative($linenum, $logline, $line, $filename);
+            while ($line !== false && !preg_match("/^(?:[a-zA-Z0-9.\-_]+:)?(?:\d+:)?\d\d\.\d\d\.\d\d\d\d \d\d:\d\d:\d\d(?:\.\d\d\d)? \*/", $sub)) {
                 $dontread = true;
-                checkMajorErrors($linenum, $logline, $line, $filename);
+                checkMajorErrors($linenum, $logline, $sub, $filename);
                 if (strlen($line) > 5000) {
                     //skip
                     $strlogmsg .= "...<line too long>\n";
@@ -110,22 +145,25 @@ function search_in_file($filename, $level, $search, $excludesearch, $regex, $sho
                 $line = fgets($fp);
                 $linenum++;
                 $sub = substr($line, 0, 300);
+                checkNarrative($linenum, $logline, $sub, $filename);
             }
             //since we read the next line while looking for the end of the stack trace set a dontread flag to tell the loop not to read to the
             //next line the next time it loops.
             $is_match = true;
-            if ($search && !strstr($strlogmsg, $search))
+            if ($search && !strstr($strlogmsg, $search)) {
                 $is_match = false;
-            if ($regex && !preg_match($regex, $strlogmsg))
+            }
+            if ($regex && !preg_match($regex, $strlogmsg)) {
                 $is_match = false;
-            if ($excludesearch && preg_match($excludesearch, $strlogmsg))
+            }
+            if ($excludesearch && preg_match($excludesearch, $strlogmsg)) {
                 $is_match = false;
-            if (($start_time && $time < $start_time) || ($end_time && $time > $end_time))
+            }
+            if (($start_time && $time < $start_time) || ($end_time && $time > $end_time)) {
                 $is_match = false;
+            }
             if ($is_match)
                 echo (($show_linenum) ? $logmsgline . ":" : "") . (($show_filename) ? $filename . ":" : "") . "$strlogmsg";
-            //if($is_match) echo "$strlogmsg";
-            //if($is_match) echo "$strlogmsg";
         }
         if (!$dontread) {
             $canread = (($line = fgets($fp)) !== false);
@@ -156,10 +194,14 @@ if ($options["e"]) {
     //echo "Ending time: " . $options["e"] . "\n";
 }
 foreach (glob($file) as $filepath) {
-    search_in_file($filepath, $options["l"], $options["s"], $options["x"], $options["r"], array_key_exists("n", $options), $options["H"], $start_time, $end_time, $options["A"], $options["B"]);
+    search_in_file($filepath, $options["l"], $options["s"], $options["x"], $options["r"], array_key_exists("n", $options), array_key_exists("H", $options), $start_time, $end_time, $options["A"], $options["B"]);
 }
 if (!empty($major_errors)) {
     print "\n\n MAJOR ERROR REPORT (note that this report only shows the first instance of the error):";
     print_r($major_errors);
+}
+if (!empty($narrative)) {
+    print "\n\n LOG NARRATIVE:";
+    print_r($narrative);
 }
 ?>
