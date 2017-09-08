@@ -129,12 +129,12 @@ function search_in_file($filename, $level, $search, $excludesearch, $regex, $sho
             $strlogmsg  = $line;
             $logline    = $line;
             checkMajorErrors($linenum, $logline, $line, $filename);
-            //$line = fgets($fp);
-            //$linenum++;
+            $line = fgets($fp);
+            $linenum++;
+            $dontread = true;
             $sub = substr($line, 0, 300);
             checkNarrative($linenum, $logline, $line, $filename);
             while ($line !== false && !preg_match("/^(?:[a-zA-Z0-9.\-_]+:)?(?:\d+:)?\d\d\.\d\d\.\d\d\d\d \d\d:\d\d:\d\d(?:\.\d\d\d)? \*/", $sub)) {
-                $dontread = true;
                 checkMajorErrors($linenum, $logline, $sub, $filename);
                 if (strlen($line) > 5000) {
                     //skip
@@ -147,8 +147,8 @@ function search_in_file($filename, $level, $search, $excludesearch, $regex, $sho
                 $sub = substr($line, 0, 300);
                 checkNarrative($linenum, $logline, $sub, $filename);
             }
-            //since we read the next line while looking for the end of the stack trace set a dontread flag to tell the loop not to read to the
-            //next line the next time it loops.
+            //since we read the next line while looking for the stack trace, set a dontread flag
+            // to tell the loop not to read to the next line.
             $is_match = true;
             if ($search && !strstr($strlogmsg, $search)) {
                 $is_match = false;
@@ -162,8 +162,9 @@ function search_in_file($filename, $level, $search, $excludesearch, $regex, $sho
             if (($start_time && $time < $start_time) || ($end_time && $time > $end_time)) {
                 $is_match = false;
             }
-            if ($is_match)
+            if ($is_match) {
                 echo (($show_linenum) ? $logmsgline . ":" : "") . (($show_filename) ? $filename . ":" : "") . "$strlogmsg";
+            }
         }
         if (!$dontread) {
             $canread = (($line = fgets($fp)) !== false);
